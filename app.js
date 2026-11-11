@@ -51,7 +51,7 @@
     antall: function (v) {
       var n = parseInt(v, 10);
       if (isNaN(n) || n < 1) return 'Velg minst 1 bok.';
-      if (n > 50) return 'Vil du bestille mer enn 50? Skriv det i meldingen, så tar vi kontakt.';
+      if (n > 50) return 'Vil du ha mer enn 50 bøker? Skriv det i meldingen.';
       return '';
     }
   };
@@ -91,13 +91,64 @@
     btn.textContent = 'Sender …';
   });
 
-  // Skjul den faste mobilknappen når bestillingsskjemaet er synlig
+  // Skjul den faste mobilknappen når skjemaet, historien eller støtt-seksjonen er synlig
   var sticky = document.getElementById('sticky-cta');
-  var orderSec = document.getElementById('bestill');
-  if (sticky && orderSec && 'IntersectionObserver' in window) {
-    new IntersectionObserver(function (entries) {
-      sticky.classList.toggle('is-hidden', entries[0].isIntersecting);
-    }, { threshold: 0.15 }).observe(orderSec);
+  var hideWhen = ['bestill', 'historien', 'stott'];
+  if (sticky && 'IntersectionObserver' in window) {
+    var visible = {};
+    var syncSticky = function () {
+      var any = hideWhen.some(function (id) { return visible[id]; });
+      sticky.classList.toggle('is-hidden', any);
+    };
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        visible[entry.target.id] = entry.isIntersecting;
+      });
+      syncSticky();
+    }, { threshold: 0.15 });
+    hideWhen.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) obs.observe(el);
+    });
+  }
+
+  // Kopier Vipps-nummer
+  var copyBtn = document.getElementById('copy-vipps');
+  var copyFeedback = document.getElementById('copy-feedback');
+  var copyTimer;
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function showCopied(ok) {
+    if (!copyFeedback) return;
+    copyFeedback.textContent = ok ? 'Kopiert!' : 'Kunne ikke kopiere. Skriv av nummeret 960 40 533.';
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(function () { copyFeedback.textContent = ''; }, 2500);
+  }
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      var number = copyBtn.getAttribute('data-number') || '96040533';
+      var done = function () { showCopied(true); };
+      var fail = function () {
+        if (fallbackCopy(number)) done();
+        else showCopied(false);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(number).then(done).catch(fail);
+      } else {
+        fail();
+      }
+    });
   }
 
   updateTotal();
